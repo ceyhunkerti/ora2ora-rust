@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Ceyhun Kerti <ceyhun.kerti@bluecolor.io>"]
 
 [dependencies]
-oracle = { version = "0.1", features = ["chrono"] }
+oracle = { git="https://github.com/kubo/rust-oracle" }
 config = "0.9"
 serde_derive = "^1.0.8"
 serde = "^1.0.8"

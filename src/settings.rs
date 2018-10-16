@@ -8,6 +8,7 @@ pub struct Source {
   pub password: String,
   pub filter: String,
   pub columns: Vec<String>,
+  pub fetch_size: u32,
 }
 
 #[derive(Debug, Deserialize)]
