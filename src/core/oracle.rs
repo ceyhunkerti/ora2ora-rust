@@ -84,11 +84,12 @@ fn ext(index: u8, sender: Sender<ExtMessage>, query: String) {
   println!("{} column count {}", index, column_info.len());
 
   for row in &rows {
+    if row.is_err() {
+      continue;
+    }
     let r = row.unwrap();
-
     let record: String = (0 .. col_cnt)
-      .map(|i| r.get::<_, String>(i)
-      .unwrap())
+      .map(|i| r.get::<_, String>(i).or::<String>(Ok("".to_string())).unwrap())
       .collect::<Vec<String>>()
       .join(",");
 
