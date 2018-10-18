@@ -3,5 +3,5 @@ pub mod oracle;
 
 #[derive(Debug, Default)]
 pub struct ExtMessage {
-  pub record_count: u8,
+  pub record_count: u64,
 }

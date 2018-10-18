@@ -1,6 +1,8 @@
 extern crate oracle;
 extern crate config;
 extern crate serde;
+extern crate indicatif;
+extern crate console;
 
 // #[macro_use]
 extern crate log;

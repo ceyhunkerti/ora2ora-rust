@@ -1,3 +1,4 @@
+use indicatif::{ProgressBar, ProgressStyle, HumanDuration};
 use std::thread::{spawn};
 use std::sync::mpsc::{channel, Sender, Receiver};
 use std::time::{Instant};
@@ -8,6 +9,9 @@ use query::{split_sql, ext_sql};
 use settings::Settings;
 use log::{info, debug, trace};
 use core::ExtMessage;
+use console::{style, Emoji};
+
+static FLAG: Emoji = Emoji("🏁  ", "");
 
 fn find_ranges(settings: &Settings) -> Vec<(String, String)> {
   info!("Finding ranges...");
@@ -32,8 +36,39 @@ fn find_ranges(settings: &Settings) -> Vec<(String, String)> {
   return result;
 }
 
+fn find_count(settings: &Settings) -> u64 {
+  debug!("Finding source count ...");
+
+  let filter = if settings.source.filter.is_empty() {
+    "".to_string()
+  } else {
+    format!("where {}", &settings.source.filter)
+  };
+
+  let hint = if settings.source.filter.is_empty() {
+    "".to_string()
+  } else {
+    format!("/*+ {} */", &settings.source.hint)
+  };
+
+  let query = format!("select {} count(1) from {} {}", hint, settings.source.table, filter);
+
+  let connection = Connection::connect(
+      &(settings.source.username),
+      &(settings.source.password),
+      &(settings.source.url), &[]).unwrap();
+
+  let result = connection.query_row(&query, &[]).unwrap().get::<_, u64>(0).unwrap();
+  connection.close().unwrap();
+  result
+}
+
 pub fn run() {
+  let start_time = Instant::now();
   let settings = Settings::new().unwrap();
+
+  let total = find_count(&settings);
+  info!("Total records: {}", total);
   let ranges = find_ranges(&settings);
 
   let columns = if settings.source.columns.is_empty() {
@@ -49,6 +84,7 @@ pub fn run() {
   };
 
   let (sender , receiver): (Sender<ExtMessage>, Receiver<ExtMessage>) = channel();
+
   let mut index: u8 = 0;
   for range in ranges {
     index += 1;
@@ -61,14 +97,25 @@ pub fn run() {
   }
   // drop the original sender
   drop(sender);
+
+  let pb = ProgressBar::new(total);
+  pb.set_style(ProgressStyle::default_bar()
+    .template("{spinner:.green} [{elapsed_precise}] [{bar:100.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+    .progress_chars("#>-"));
+
+  let mut extracted: u64 = 0;
   for message in receiver {
-    println!("Got: {}", message.record_count);
+    extracted += message.record_count;
+    pb.set_position(extracted);
   }
+  pb.finish();
+  let m = format!("Completed in {}", HumanDuration(start_time.elapsed()));
+  info!("{} {} {}", style("[2/4]").bold().dim(), FLAG, m);
 }
 
 fn ext(index: u8, sender: Sender<ExtMessage>, query: String) {
   let settings = Settings::new().unwrap();
-  let message = ExtMessage::default();
+  let mut message: ExtMessage = ExtMessage::default();
   let start_time = Instant::now();
   let connection = Connection::connect(
       &(settings.source.username),
@@ -79,23 +126,21 @@ fn ext(index: u8, sender: Sender<ExtMessage>, query: String) {
   let mut stmt = connection.prepare(&query, &[fetch_size]).unwrap();
 
   let rows = stmt.query(&[]).unwrap();
-  let column_info = rows.column_info();
   let col_cnt = rows.column_info().len();
-  println!("{} column count {}", index, column_info.len());
 
+  let mut count = 0;
   for row in &rows {
-    if row.is_err() {
-      continue;
-    }
     let r = row.unwrap();
     let record: String = (0 .. col_cnt)
       .map(|i| r.get::<_, String>(i).or::<String>(Ok("".to_string())).unwrap())
       .collect::<Vec<String>>()
       .join(",");
 
-    println!("{}", record);
+    // println!("{}", record);
+    count += 1;
   }
 
+  message.record_count = count;
   sender.send(message).unwrap();
 
   connection.close().unwrap();

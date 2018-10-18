@@ -9,6 +9,7 @@ pub struct Source {
   pub filter: String,
   pub columns: Vec<String>,
   pub fetch_size: u32,
+  pub hint: String,
 }
 
 #[derive(Debug, Deserialize)]
