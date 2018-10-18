@@ -13,6 +13,15 @@ pub struct Source {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Stage {
+  pub column_separator: String,
+  pub record_delimiter: String,
+  pub unload_path: String,
+  pub write_buffer: usize,
+}
+
+
+#[derive(Debug, Deserialize)]
 pub struct Target {
   pub url: String,
   pub username: String,
@@ -22,13 +31,12 @@ pub struct Target {
 #[derive(Debug, Deserialize)]
 pub struct Global {
   pub parallel: u8,
-  pub unload_path: String,
 }
-
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
   pub source: Source,
+  pub stage: Stage,
   pub target: Target,
   pub global: Global,
 }
